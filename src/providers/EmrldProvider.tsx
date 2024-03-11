@@ -1,4 +1,5 @@
 import {createContext, useCallback, useContext, useEffect, useMemo, useState} from "react";
+import React from "react";
 import {useConnection, useWallet} from "@solana/wallet-adapter-react";
 import {
     EmeraldCommunity,

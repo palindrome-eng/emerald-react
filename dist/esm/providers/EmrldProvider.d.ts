@@ -1,4 +1,4 @@
-/// <reference types="react" />
+import React from "react";
 import { EmeraldCommunity, CommunityPool, NftTicket, UserAccount, UserCommunityAccount } from "@2112-labs/emerald.js";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { Account } from "@solana/spl-token";
@@ -43,7 +43,7 @@ declare type EmrldContextData = {
 export default function EmrldProvider({ children, communityId }: {
     children: JSX.Element;
     communityId: number;
-}): import("react/jsx-runtime").JSX.Element;
+}): React.JSX.Element;
 declare const useEmrld: () => EmrldContextData;
 export { useEmrld };
 export type { EmrldContextData };
