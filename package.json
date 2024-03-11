@@ -1,0 +1,40 @@
+{
+  "name": "@2112-labs/emerald-react",
+  "version": "1.0.0",
+  "description": "Official React SDK of Emerald - Hyper-Efficient Onchain Reward Infrastructure. Powered by Solana. Maintained by 21|12 Labs.",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/2112-Foundation/emerald-react.git"
+  },
+  "author": "zkchakra, 21|12 Foundation",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/2112-Foundation/emerald-react/issues"
+  },
+  "homepage": "https://github.com/2112-Foundation/emerald-react#readme",
+  "dependencies": {
+    "@2112-labs/emerald.js": "^1.0.19",
+    "@coral-xyz/anchor": "^0.28.1-beta.2",
+    "@metaplex-foundation/beet": "^0.7.1",
+    "@metaplex-foundation/beet-solana": "^0.4.0",
+    "@metaplex-foundation/js": "^0.19.5",
+    "@solana/spl-token": "^0.3.8",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/web3.js": "^1.78.5",
+    "bn.js": "^5.2.1",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.2",
+    "@types/react": "^18.2.64"
+  },
+  "main": "./src/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "files": [
+    "/dist"
+  ]
+}
