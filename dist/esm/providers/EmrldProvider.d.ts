@@ -1,5 +1,5 @@
 import React from "react";
-import { EmeraldCommunity, CommunityPool, NftTicket, UserAccount, UserCommunityAccount } from "@2112-labs/emerald.js";
+import { CommunityPool, EmeraldCommunity, NftTicket, UserAccount, UserCommunityAccount } from "@2112-labs/emerald.js";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { Account } from "@solana/spl-token";
 declare type WalletType = "ledger" | undefined;

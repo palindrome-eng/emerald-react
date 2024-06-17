@@ -34,15 +34,15 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import React from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { EmeraldCommunity, CollectionPolicy } from "@2112-labs/emerald.js";
-import { Transaction } from "@solana/web3.js";
+import { CollectionPolicy, EmeraldCommunity } from "@2112-labs/emerald.js";
+import { ComputeBudgetProgram, Transaction } from "@solana/web3.js";
 import { getAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import useTokenMetadata from "../hooks/useTokenMetadata";
 import { Metaplex } from "@metaplex-foundation/js";
 import parseBignum from "../utils/parseBignum";
+import { TokenStandard } from "@metaplex-foundation/mpl-token-metadata";
 var defaultState = {
     community: null,
     userCommunityAccount: undefined,
@@ -75,14 +75,21 @@ export default function EmrldProvider(_a) {
     var connection = useConnection().connection;
     var _c = useWallet(), publicKey = _c.publicKey, signTransaction = _c.signTransaction, signAllTransactions = _c.signAllTransactions;
     var signAndSend = useCallback(function (ix) { return __awaiter(_this, void 0, void 0, function () {
-        var transaction, _a, blockhash, lastValidBlockHeight, signed, sent;
+        var computeUnits, priorityFee, transaction, _a, blockhash, lastValidBlockHeight, signed, sent;
         return __generator(this, function (_b) {
             switch (_b.label) {
                 case 0:
                     if (!signTransaction || !publicKey || !connection) {
                         throw "Wallet connection error! Refresh, reconnect your wallet and try again.";
                     }
+                    computeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+                        units: 300000
+                    });
+                    priorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+                        microLamports: 500000
+                    });
                     transaction = new Transaction();
+                    transaction.add(priorityFee, computeUnits);
                     ix.forEach(function (ix) {
                         transaction.add(ix);
                     });
@@ -95,7 +102,9 @@ export default function EmrldProvider(_a) {
                     return [4 /*yield*/, signTransaction(transaction)];
                 case 2:
                     signed = _b.sent();
-                    return [4 /*yield*/, connection.sendRawTransaction(signed.serialize())];
+                    return [4 /*yield*/, connection.sendRawTransaction(signed.serialize(), {
+                            skipPreflight: false
+                        })];
                 case 3:
                     sent = _b.sent();
                     return [4 /*yield*/, connection.confirmTransaction({
@@ -207,9 +216,8 @@ export default function EmrldProvider(_a) {
         });
     }); }, [connection, publicKey, signAllTransactions]);
     var emeraldCommunity = useMemo(function () {
-        // We have to ignore the `null` value of publicKey.
-        // The hook won't be called if wallet is not connected anyway.
-        // @ts-ignore
+        if (!publicKey)
+            return null;
         return new EmeraldCommunity(connection, communityId, publicKey);
     }, [communityId, connection, publicKey]);
     var _d = useState([]), userStakedNfts = _d[0], setUserStakedNfts = _d[1];
@@ -217,7 +225,10 @@ export default function EmrldProvider(_a) {
         var data;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, emeraldCommunity.getUserStakedNfts()];
+                case 0:
+                    if (!emeraldCommunity)
+                        return [2 /*return*/];
+                    return [4 /*yield*/, emeraldCommunity.getUserStakedNfts()];
                 case 1:
                     data = _a.sent();
                     console.log({ data: data });
@@ -292,7 +303,10 @@ export default function EmrldProvider(_a) {
         var walletNfts, validCollections, mappedValidCollections, validNfts, mappedValidNfts, allStakedMapped, validUnstakedNfts;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, emeraldCommunity.getWalletNfts()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, emeraldCommunity.getWalletNfts()];
                 case 1:
                     walletNfts = _a.sent();
                     return [4 /*yield*/, emeraldCommunity.getCollections()];
@@ -357,7 +371,10 @@ export default function EmrldProvider(_a) {
         var ix;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, emeraldCommunity.initializeUserGlobalAccount()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, emeraldCommunity.initializeUserGlobalAccount()];
                 case 1:
                     ix = _a.sent();
                     return [2 /*return*/, ix];
@@ -368,7 +385,10 @@ export default function EmrldProvider(_a) {
         var ix;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, emeraldCommunity.initializeUserCommunityAccount()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, emeraldCommunity.initializeUserCommunityAccount()];
                 case 1:
                     ix = _a.sent();
                     return [2 /*return*/, ix];
@@ -379,7 +399,10 @@ export default function EmrldProvider(_a) {
         var ix;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, emeraldCommunity.initializeUserRewardVault()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, emeraldCommunity.initializeUserRewardVault()];
                 case 1:
                     ix = _a.sent();
                     return [2 /*return*/, ix];
@@ -391,7 +414,10 @@ export default function EmrldProvider(_a) {
         var data;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, emeraldCommunity.getUserGlobalAccount()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, emeraldCommunity.getUserGlobalAccount()];
                 case 1:
                     data = _a.sent();
                     setUserGlobalAccount(data);
@@ -417,7 +443,10 @@ export default function EmrldProvider(_a) {
         var data;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, emeraldCommunity.getUserCommunityAccount()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, emeraldCommunity.getUserCommunityAccount()];
                 case 1:
                     data = _a.sent();
                     setUserCommunityAccount(data);
@@ -442,7 +471,10 @@ export default function EmrldProvider(_a) {
         var communityData, coinMint, ata, account, err_3;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, emeraldCommunity.getCommunity()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, emeraldCommunity.getCommunity()];
                 case 1:
                     communityData = _a.sent();
                     coinMint = communityData.coinMint;
@@ -536,7 +568,10 @@ export default function EmrldProvider(_a) {
             var cd;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, emeraldCommunity.getCommunity()];
+                    case 0:
+                        if (!emeraldCommunity)
+                            throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                        return [4 /*yield*/, emeraldCommunity.getCommunity()];
                     case 1:
                         cd = _a.sent();
                         setCommunityData(cd);
@@ -599,7 +634,7 @@ export default function EmrldProvider(_a) {
     var stakeOne = useCallback(function (_a) {
         var nft = _a.nft, policy = _a.policy;
         return __awaiter(_this, void 0, void 0, function () {
-            var canBeStaked, ix;
+            var canBeStaked, metadata, ix, isPnft;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
@@ -608,14 +643,28 @@ export default function EmrldProvider(_a) {
                             .includes(nft.toString());
                         if (!canBeStaked)
                             throw "Cannot be staked.";
-                        return [4 /*yield*/, emeraldCommunity.stakeNft(nft, policy)];
+                        if (!emeraldCommunity)
+                            throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                        return [4 /*yield*/, emeraldCommunity.emeraldClient.metaplex.nfts().findByMint({
+                                mintAddress: nft
+                            })];
                     case 1:
-                        ix = _b.sent();
-                        return [4 /*yield*/, signAndSend([ix])];
+                        metadata = _b.sent();
+                        isPnft = metadata.tokenStandard === TokenStandard.ProgrammableNonFungible;
+                        if (!isPnft) return [3 /*break*/, 3];
+                        return [4 /*yield*/, emeraldCommunity.stakePnft(nft, policy)];
                     case 2:
+                        ix = _b.sent();
+                        return [3 /*break*/, 5];
+                    case 3: return [4 /*yield*/, emeraldCommunity.stakeNft(nft, policy)];
+                    case 4:
+                        ix = _b.sent();
+                        _b.label = 5;
+                    case 5: return [4 /*yield*/, signAndSend([ix])];
+                    case 6:
                         _b.sent();
                         return [4 /*yield*/, refreshState()];
-                    case 3:
+                    case 7:
                         _b.sent();
                         return [2 /*return*/];
                 }
@@ -625,7 +674,7 @@ export default function EmrldProvider(_a) {
     var unstakeOne = useCallback(function (_a) {
         var nft = _a.nft, policy = _a.policy;
         return __awaiter(_this, void 0, void 0, function () {
-            var canBeUnstaked, ix;
+            var canBeUnstaked, metadata, ix, isPnft;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
@@ -634,14 +683,28 @@ export default function EmrldProvider(_a) {
                             .includes(nft.toString());
                         if (!canBeUnstaked)
                             throw "Can't be unstaked";
-                        return [4 /*yield*/, emeraldCommunity.unstakeNft(nft, policy)];
+                        if (!emeraldCommunity)
+                            throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                        return [4 /*yield*/, emeraldCommunity.emeraldClient.metaplex.nfts().findByMint({
+                                mintAddress: nft
+                            })];
                     case 1:
-                        ix = _b.sent();
-                        return [4 /*yield*/, signAndSend([ix])];
+                        metadata = _b.sent();
+                        isPnft = metadata.tokenStandard === TokenStandard.ProgrammableNonFungible;
+                        if (!isPnft) return [3 /*break*/, 3];
+                        return [4 /*yield*/, emeraldCommunity.unstakePnft(nft, policy)];
                     case 2:
+                        ix = _b.sent();
+                        return [3 /*break*/, 5];
+                    case 3: return [4 /*yield*/, emeraldCommunity.unstakeNft(nft, policy)];
+                    case 4:
+                        ix = _b.sent();
+                        _b.label = 5;
+                    case 5: return [4 /*yield*/, signAndSend([ix])];
+                    case 6:
                         _b.sent();
                         return [4 /*yield*/, refreshState()];
-                    case 3:
+                    case 7:
                         _b.sent();
                         return [2 /*return*/];
                 }
@@ -653,7 +716,10 @@ export default function EmrldProvider(_a) {
         var _this = this;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, refetchUserStakableUnstakedNfts()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, refetchUserStakableUnstakedNfts()];
                 case 1:
                     allStakable = _a.sent();
                     return [4 /*yield*/, Promise.all(allStakable.map(function (n) { return __awaiter(_this, void 0, void 0, function () {
@@ -689,9 +755,14 @@ export default function EmrldProvider(_a) {
         var _this = this;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, refetchUserStakedNfts()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, refetchUserStakedNfts()];
                 case 1:
                     allStaked = _a.sent();
+                    if (!allStaked)
+                        throw "No NFTs to unstake.";
                     return [4 /*yield*/, Promise.all(allStaked.map(function (n) { return __awaiter(_this, void 0, void 0, function () {
                             var ix;
                             return __generator(this, function (_a) {
@@ -724,7 +795,10 @@ export default function EmrldProvider(_a) {
         var ix, transactions;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, emeraldCommunity.claimAllRewards()];
+                case 0:
+                    if (!emeraldCommunity)
+                        throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+                    return [4 /*yield*/, emeraldCommunity.claimAllRewards()];
                 case 1:
                     ix = _a.sent();
                     transactions = ix.map(function (ix) {

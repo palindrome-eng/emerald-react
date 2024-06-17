@@ -1,19 +1,19 @@
-import {createContext, useCallback, useContext, useEffect, useMemo, useState} from "react";
-import React from "react";
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from "react";
 import {useConnection, useWallet} from "@solana/wallet-adapter-react";
 import {
-    EmeraldCommunity,
     CollectionPolicy,
     CommunityPool,
+    EmeraldCommunity,
     NftTicket,
     UserAccount,
     UserCommunityAccount
 } from "@2112-labs/emerald.js";
-import {PublicKey, Transaction, TransactionInstruction} from "@solana/web3.js";
+import {ComputeBudgetProgram, PublicKey, Transaction, TransactionInstruction} from "@solana/web3.js";
 import {Account, getAccount, getAssociatedTokenAddressSync} from "@solana/spl-token";
 import useTokenMetadata from "../hooks/useTokenMetadata";
 import {Metaplex} from "@metaplex-foundation/js";
 import parseBignum from "../utils/parseBignum";
+import {TokenStandard} from "@metaplex-foundation/mpl-token-metadata";
 
 // Account of type null is fetched, but not initialized.
 // Account of type undefined is not fetched yet.
@@ -108,7 +108,17 @@ export default function EmrldProvider({ children, communityId } : {
             throw "Wallet connection error! Refresh, reconnect your wallet and try again.";
         }
 
+        const computeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+            units: 300_000
+        });
+
+        const priorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+            microLamports: 500_000
+        });
+
         const transaction = new Transaction();
+        transaction.add(priorityFee, computeUnits);
+
         ix.forEach(ix => {
             transaction.add(ix);
         });
@@ -120,7 +130,10 @@ export default function EmrldProvider({ children, communityId } : {
 
         const signed = await signTransaction(transaction);
         const sent = await connection.sendRawTransaction(
-            signed.serialize()
+            signed.serialize(),
+            {
+                skipPreflight: false
+            }
         );
 
         await connection.confirmTransaction({
@@ -210,14 +223,13 @@ export default function EmrldProvider({ children, communityId } : {
     }, [connection, publicKey, signAllTransactions]);
 
     const emeraldCommunity = useMemo(() => {
-        // We have to ignore the `null` value of publicKey.
-        // The hook won't be called if wallet is not connected anyway.
-        // @ts-ignore
+        if (!publicKey) return null;
         return new EmeraldCommunity(connection, communityId, publicKey);
     }, [communityId, connection, publicKey]);
 
     const [userStakedNfts, setUserStakedNfts] = useState<StakedNft[]>([]);
     const refetchUserStakedNfts = useCallback(async () => {
+        if (!emeraldCommunity) return;
         const data = await emeraldCommunity.getUserStakedNfts();
         console.log({data});
         setUserStakedNfts(data);
@@ -262,6 +274,7 @@ export default function EmrldProvider({ children, communityId } : {
 
     const [userStakableUnstakedNfts, setStakableUnstakedNfts] = useState<PublicKey[]>([]);
     const refetchUserStakableUnstakedNfts = useCallback(async () => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
         const walletNfts = await emeraldCommunity.getWalletNfts();
         const validCollections = await emeraldCommunity.getCollections();
 
@@ -319,22 +332,26 @@ export default function EmrldProvider({ children, communityId } : {
     }, [userStakedNfts]);
 
     const initializeUserGlobalAccount = useCallback(async () => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
         const ix = await emeraldCommunity.initializeUserGlobalAccount();
         return ix;
     }, [emeraldCommunity]);
 
     const initializeUserCommunityAccount = useCallback(async () => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
         const ix = await emeraldCommunity.initializeUserCommunityAccount();
         return ix;
     }, [emeraldCommunity]);
 
     const initializeUserRewardVault = useCallback(async () => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
         const ix = await emeraldCommunity.initializeUserRewardVault();
         return ix;
     }, [emeraldCommunity]);
 
     const [userGlobalAccount, setUserGlobalAccount] = useState<UserAccount | null | undefined>();
     const refetchUserGlobalAccount = useCallback(async () => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
         const data = await emeraldCommunity.getUserGlobalAccount();
         setUserGlobalAccount(data);
     }, [emeraldCommunity]);
@@ -348,6 +365,7 @@ export default function EmrldProvider({ children, communityId } : {
     // TODO: Finish
     const [userCommunityAccount, setUserCommunityAccount] = useState<UserCommunityAccount | null | undefined>();
     const refetchUserCommunityAccount = useCallback(async () => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
         const data = await emeraldCommunity.getUserCommunityAccount();
         setUserCommunityAccount(data);
     }, [emeraldCommunity]);
@@ -360,6 +378,7 @@ export default function EmrldProvider({ children, communityId } : {
 
     const [userRewardVault, setUserRewardVault] = useState<Account | null | undefined>();
     const refetchUserRewardVault = useCallback(async () => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
         const communityData = await emeraldCommunity.getCommunity();
         const { coinMint } = communityData;
 
@@ -412,6 +431,7 @@ export default function EmrldProvider({ children, communityId } : {
     const [communityData, setCommunityData] = useState<CommunityPool | null>(null);
     useEffect(() => {
         (async () => {
+            if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
             const cd = await emeraldCommunity.getCommunity();
             setCommunityData(cd);
         })();
@@ -421,7 +441,9 @@ export default function EmrldProvider({ children, communityId } : {
         return new Metaplex(connection)
     }, [connection]);
 
-    const { metadata: rewardTokenMetadata } = useTokenMetadata(
+    const {
+        metadata: rewardTokenMetadata
+    } = useTokenMetadata(
         communityData?.coinMint?.toString() || null,
         metaplex
     );
@@ -458,8 +480,20 @@ export default function EmrldProvider({ children, communityId } : {
             .includes(nft.toString());
 
         if (!canBeStaked) throw "Cannot be staked.";
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
 
-        const ix = await emeraldCommunity.stakeNft(nft, policy);
+        const metadata = await emeraldCommunity.emeraldClient.metaplex.nfts().findByMint({
+            mintAddress: nft
+        });
+
+        let ix: TransactionInstruction | null;
+        const isPnft = metadata.tokenStandard === TokenStandard.ProgrammableNonFungible;
+        if (isPnft) {
+            ix = await emeraldCommunity.stakePnft(nft, policy);
+        } else {
+            ix = await emeraldCommunity.stakeNft(nft, policy);
+        }
+
         await signAndSend([ix]);
         await refreshState();
     }, [emeraldCommunity, refreshState, signAndSend, userStakableUnstakedNfts]);
@@ -470,13 +504,27 @@ export default function EmrldProvider({ children, communityId } : {
             .includes(nft.toString());
 
         if (!canBeUnstaked) throw "Can't be unstaked";
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
 
-        const ix = await emeraldCommunity.unstakeNft(nft, policy);
+        const metadata = await emeraldCommunity.emeraldClient.metaplex.nfts().findByMint({
+            mintAddress: nft
+        });
+
+        let ix: TransactionInstruction | null;
+        const isPnft = metadata.tokenStandard === TokenStandard.ProgrammableNonFungible;
+        if (isPnft) {
+            ix = await emeraldCommunity.unstakePnft(nft, policy);
+        } else {
+            ix = await emeraldCommunity.unstakeNft(nft, policy);
+        }
+
         await signAndSend([ix]);
         await refreshState();
     }, [emeraldCommunity, signAndSend, userStakedNfts]);
 
     const stakeAll = useCallback(async (type: WalletType) => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+
         const allStakable = await refetchUserStakableUnstakedNfts();
         const instructions = await Promise.all(allStakable.map(async (n) => {
             const ix = await emeraldCommunity.stakeNft(n);
@@ -485,7 +533,12 @@ export default function EmrldProvider({ children, communityId } : {
 
         const transactions = instructions.map(ix => {
             const tx = new Transaction();
+
+            tx.add(ComputeBudgetProgram.setComputeUnitPrice({
+                microLamports: 100_000
+            }));
             tx.add(ix);
+
             return tx;
         });
 
@@ -494,7 +547,9 @@ export default function EmrldProvider({ children, communityId } : {
     }, [emeraldCommunity, refetchUserStakableUnstakedNfts, refreshState, signAndSendMultiple]);
 
     const unstakeAll = useCallback(async (type: WalletType) => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
         const allStaked = await refetchUserStakedNfts();
+        if (!allStaked) throw "No NFTs to unstake.";
 
         const instructions = await Promise.all(allStaked.map(async (n) => {
             const ix = await emeraldCommunity.unstakeNft(n.mint);
@@ -503,7 +558,12 @@ export default function EmrldProvider({ children, communityId } : {
 
         const transactions = instructions.map(ix => {
             const tx = new Transaction();
+
+            tx.add(ComputeBudgetProgram.setComputeUnitPrice({
+                microLamports: 100_000
+            }));
             tx.add(ix);
+
             return tx;
         });
 
@@ -512,10 +572,17 @@ export default function EmrldProvider({ children, communityId } : {
     }, [emeraldCommunity, refetchUserStakedNfts, refreshState, signAndSendMultiple]);
 
     const claimRewards = useCallback(async (type: WalletType) => {
+        if (!emeraldCommunity) throw "EmeraldCommunity not initialized. Make sure wallet is connected.";
+
         const ix = await emeraldCommunity.claimAllRewards();
         const transactions = ix.map(ix => {
             const tx = new Transaction();
+
+            tx.add(ComputeBudgetProgram.setComputeUnitPrice({
+                microLamports: 100_000
+            }));
             tx.add(ix);
+
             return tx;
         });
 
